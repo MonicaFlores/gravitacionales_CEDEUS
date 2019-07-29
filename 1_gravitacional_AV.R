@@ -1,6 +1,6 @@
 
 
-#install.packages(c("tidyverse","glue", "spDataLarge", "stplanr", "tmap")) 
+# install.packages(c("tidyverse","glue", "rgdal", "stplanr", "tmap", "mapview"))
 
 library(glue)
 library(sf)
@@ -14,7 +14,8 @@ library(tmap)         # visualization package (see Chapter 8)
 
 options(scipen=999) # Sacar notacion cientifica
 
-setwd("C:/Users/CEDEUS 18/Documents/CEDEUS/Monica - 2018/12_Conferencias/Junta Anual CEDEUS 2019/Gravitacional")
+# setwd("C:/Users/CEDEUS 18/Documents/CEDEUS/Monica - 2018/12_Conferencias/Junta Anual CEDEUS 2019/Gravitacional")
+setwd("C:/Users/rtruf/Desktop/Monica/Junta Anual CEDEUS 2019/Gravitacional")
 
 
 # Definir origenes y destinos ---------------------------------------------
