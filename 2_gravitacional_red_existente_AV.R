@@ -244,3 +244,17 @@ mapview::mapview(areas_verdes_cent, col.regions = "green") +
   
 
 
+# Tasa de cambio  ---------------------------------------------------------
+
+mzn_tasa_0 <- st_read("Output/mzn_areas_verdes_total_0.shp") %>% select(geo_code,  m2_AV_0 = m2_AV_hab) 
+mzn_tasa_G1 <- st_read("Output/mzn_areas_verdes_total_G1.shp") %>% select(geo_code,  m2_AV_G1 = m2_AV_hab) %>% st_set_geometry(NULL)
+
+# Cálculo tasa de cambio
+av_join_G1 <- mzn_tasa_0 %>% 
+  left_join(mzn_tasa_G1, by="geo_code") %>% 
+  mutate(
+    m2_avp_cambio = m2_AV_G1 - m2_AV_0,
+    m2_avp_pctc = if_else(m2_AV_0==0, 0, ((m2_AV_G1 - m2_AV_0)/ m2_AV_0)*100)
+  ) 
+
+mapview::mapview(av_join_G1, zcol = "m2_avp_cambio", at = seq(0, 10, 2), legend = TRUE)
