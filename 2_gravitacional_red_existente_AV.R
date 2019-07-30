@@ -59,6 +59,12 @@ destinos <- st_read("Input/aavv") %>%
 area_AV_m2 <- st_area(destinos) # unidades en m2
 destinos$area_AV_m2 <- as.numeric(area_AV_m2) # Agregarlo como variable
 
+# Leer red
+red_local <- st_read("Input/RED") %>% 
+  rename_all(tolower)  %>% 
+  as("Spatial") %>% # Transformar shape a spatial points data frame
+  SpatialLinesNetwork()
+
 
 # Agregar nuevas areas verdes propuestas ---------------------------------
 # DESCOMENTAR EN EL EJERCICIO
@@ -102,7 +108,6 @@ for (iso in isodistancias) {
   centroides <- origenes %>% 
     rbind(areas_verdes) %>% 
     st_centroid() %>% 
-    # select(geo_code, pob_tot) %>%  # Seleccionar solo geo-codigo y poblacion total
     as("Spatial") # Transformar shape a spatial points data frame
     
   # Plotear
@@ -149,7 +154,10 @@ for (iso in isodistancias) {
   
   # 3. Transformar a ruta ---------------------------------------------------
   
-  ruta <- line2route(desire_lines_filt, route_fun = route_osrm) # Funcion ruta route_osrm baja datos de http://project-osrm.org/
+  # ruta <- line2route(desire_lines_filt, route_fun = route_osrm) # Funcion ruta route_osrm baja datos de http://project-osrm.org/
+  
+  ruta <- route_local(network, from = NULL, to = NULL, l = desire_lines_filt)
+  
   ruta <- ruta %>% st_as_sf() %>% rename(dist_ruta = distance)
   
   # Filtrar distancias menores a isodistancia (500m plazas o 5000m parques)
@@ -160,7 +168,7 @@ for (iso in isodistancias) {
     filter(dist_ruta <= iso & !is.na(dist_ruta))
   
   # Guardar ruta para corroborar
-  ruta_final %>% st_write(glue("Output/ruta_{iso}_0.shp"), delete_layer = TRUE)
+  ruta_final %>% st_write(glue("Output/ruta_{iso}_local.shp"), delete_layer = TRUE)
   
   
   # 4. Cálculo CAP CARGA -------------------------------------------------------
