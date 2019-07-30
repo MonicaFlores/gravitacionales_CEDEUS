@@ -193,10 +193,11 @@ for (iso in isodistancias) {
   # Guardar mzn para corroborar
   ORIG_m2_hab %>% saveRDS(glue("Output/temp_m2_AV_{iso}.Rds"))
   
-    
+
+  ###### FIN ITERACION #######    
+  
 }
 
-###### FIN ITERACION #######
 
 # 5. Llevar a manzanas originales --------------------------------------------
 
