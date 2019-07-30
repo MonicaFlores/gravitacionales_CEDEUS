@@ -42,14 +42,18 @@ destinos <- st_read("Input/aavv") %>%
 area_AV_m2 <- st_area(destinos) # unidades en m2
 destinos$area_AV_m2 <- as.numeric(area_AV_m2) # Agregarlo como variable
 
-# separar en parques y plazas
+# separar destinos en parques y plazas
 plazas <- destinos %>% 
   filter(area_AV_m2 < 10000)
 
 parques <- destinos %>% 
   filter(area_AV_m2 >= 10000)
 
-# Unir origenes y destinos - plazas ---------------------------------------
+# Network analysis --------------------------------------------------------
+
+# Proceso siguiendo: https://geocompr.robinlovelace.net/transport.html 
+
+# 0. Unir origenes y destinos - plazas ---------------------------------------
 
 # Unir plazas y mzn en unica base y sacar centroide
 centroides <- origenes %>% 
@@ -63,10 +67,6 @@ centroides %>% st_as_sf() %>% ggplot() + geom_sf(color = "red")
 
 # Visualizar tabla datos
 as.data.frame(centroides)
-
-# Network analysis --------------------------------------------------------
-
-# Proceso siguiendo: https://geocompr.robinlovelace.net/transport.html 
 
 # 1. Armar una matriz origen destino --------------------------------------
 dest <- plazas %>% 
@@ -94,24 +94,40 @@ flow <- origenes %>%
 
 desire_lines <- od2line(flow = flow, zones=centroides)
 
-desire_lines %>% st_as_sf() %>% mapview::mapview() # Visualizar lineas
+desire_lines_filt <- desire_lines %>% 
+  st_as_sf() 
 
+desire_lines_filt <- desire_lines_filt %>% 
+  mutate(
+    dist_recta = as.numeric(st_length(desire_lines_filt))
+    ) %>% 
+  filter(dist_recta < 1000) %>% 
+  as("Spatial")
 
 # 3. Transformar a ruta ---------------------------------------------------
 
-ruta <- line2route(desire_lines, route_fun = route_osrm) # Funcion ruta route_osrm baja datos de http://project-osrm.org/
+ruta <- line2route(desire_lines_filt, route_fun = route_osrm) # Funcion ruta route_osrm baja datos de http://project-osrm.org/
+ruta <- ruta %>% st_as_sf() %>% rename(dist_ruta = distance)
 
 # Filtrar distancias menores a 500m
-ruta_final <- ruta %>% 
+ruta_final <- desire_lines_filt %>% 
   st_as_sf() %>% 
   st_set_geometry(NULL) %>% 
-  filter(distance <= 500)
+  bind_cols(ruta) %>% 
+  filter(dist_ruta <= 500)
+
+# Guardar ruta para corroborar
+ruta_final %>% st_write("Output/ruta_pza_0.shp", delete_layer = TRUE)
 
 
 # 4. Cálculo CAP CARGA -------------------------------------------------------
 
+ruta_final <- ruta_final %>% st_set_geometry(NULL)
+destinos_data <- destinos %>% st_set_geometry(NULL) %>% rename(code_dest = geo_code) %>% select(-pob_tot)
+
 # Calcular capacidad de carga DESTINOS
 DEST_m2_hab <- ruta_final %>% 
+  left_join(destinos_data, by = "code_dest") %>% 
   group_by(code_dest, area_AV_m2) %>% 
   summarise(
     pob_AV = sum(pob, na.rm = TRUE)
@@ -124,22 +140,45 @@ DEST_m2_hab <- ruta_final %>%
   
 # Llevar m2 AV a origenes
 ORIG_m2_hab <- ruta_final %>%
-  left_join(DEST_m2_hab, by = "m2_hab_dest") %>% 
+  left_join(DEST_m2_hab, by = "code_dest") %>% 
   group_by(code_orig) %>% 
   summarise(
     m2_AV_hab = sum(m2_hab_dest, na.rm = TRUE)
   ) %>% 
   ungroup() %>% 
-  rename(geo_code = code_orig)
+  rename(geo_code = code_orig) 
 
 
-# Llevar a manzanas originales --------------------------------------------
+
+# 5. Llevar a manzanas originales --------------------------------------------
 
 # Left join capacidad de carga
 mzn_final <- origenes %>% 
-  left_join(ORIG_m2_hab, by = "geo_code")
+  left_join(ORIG_m2_hab_pza, by = "geo_code") %>% 
+  left_join(ORIG_m2_hab_pqe, by = "geo_code") %>% 
+  select(-area_AV_m2) %>% 
+  filter(pob_tot != 0) %>% 
+  mutate(
+    m2_AV_hab = if_else(is.na(m2_AV_hab), 0, m2_AV_hab)
+  )
+
+
+# Visualización -----------------------------------------------------------
+
+
 
 # Plotear
-mapview::mapview(mzn_final, zcol = "m2_AV_hab", at = seq(0, 10, 2), legend = TRUE)
+
+plazas_cent <- plazas %>% st_centroid()
+
+mzn_plot <- mzn_final %>% 
+  mutate(
+  m2_AV_hab = if_else(m2_AV_hab >20, 20, m2_AV_hab)
+)
+
+mapview::mapview(plazas_cent, col.regions = "green") +
+  mapview::mapview(mzn_plot, zcol = "m2_AV_hab", at = seq(0, 20, 5), legend = TRUE) 
   
-    
+
+# Guardar mzn para corroborar
+mzn_final %>% st_write("Output/mzn_plazas_0.shp", delete_layer = TRUE)
