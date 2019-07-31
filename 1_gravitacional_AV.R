@@ -207,12 +207,12 @@ plazas_m2hab <- readRDS("Output/temp_m2_AV_500.Rds") %>% rename(pza_m2_AV_hab = 
 
 # Left join capacidad de carga
 mzn_final <- origenes %>% 
-  # left_join(plazas_m2hab, by = "geo_code") %>% 
+  left_join(plazas_m2hab, by = "geo_code") %>% 
   left_join(parques_m2hab, by = "geo_code") %>% 
   select(-area_AV_m2) %>% 
   filter(pob_tot != 0) %>% 
   mutate(
-    m2_AV_hab = pqe_m2_AV_hab, #+ pza_m2_AV_hab,
+    m2_AV_hab = pqe_m2_AV_hab + pza_m2_AV_hab,
     m2_AV_hab = if_else(is.na(m2_AV_hab), 0, m2_AV_hab)
   )
 
